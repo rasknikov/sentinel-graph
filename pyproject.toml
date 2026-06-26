@@ -5,6 +5,7 @@ description = "Governed multi-tenant agentic RAG platform scaffold."
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "aiosqlite>=0.21.0",
     "alembic>=1.18.4",
     "asyncpg>=0.31.0",
     "celery>=5.6.3",
