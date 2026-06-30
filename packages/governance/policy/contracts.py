@@ -12,7 +12,7 @@ class PolicyDecisionType(StrEnum):
 
 
 class PolicyDecision(BaseModel):
-    model_config = ConfigDict(fronze=True)
+    model_config = ConfigDict(frozen=True)
 
     decision: PolicyDecisionType
     reason: str

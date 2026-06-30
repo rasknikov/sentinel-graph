@@ -14,3 +14,15 @@ class AuditRecordRef(BaseModel):
     trace_id: TraceId
     event_type: str
     error_code: ErrorCode | None = None
+
+
+class AuditEventWrite(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    tenant_id: TenantId
+    user_id: UserId
+    request_id: RequestId
+    trace_id: TraceId
+    event_type: str
+    message: str
+    error_code: ErrorCode | None = None
