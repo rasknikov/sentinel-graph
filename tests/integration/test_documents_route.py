@@ -5,6 +5,8 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select
 
 from apps.api.main import app
+from packages.ai_gateway.contracts import EmbeddingRequest, EmbeddingResult
+from packages.ai_gateway.dependencies import get_ai_gateway_service
 from packages.common.db.dependencies import get_db_session
 from packages.common.db.models.document import Document
 from packages.common.db.models.document_version import DocumentVersion
@@ -38,6 +40,17 @@ class FakeDocumentIngestionService:
             version=request.version,
             classification=request.classification,
             status=DocumentStatus.DRAFT,
+        )
+
+
+class FakeEmbeddingGatewayService:
+    async def generate_embedding(
+        self,
+        request: EmbeddingRequest,
+    ) -> EmbeddingResult:
+        return EmbeddingResult(
+            model_name=request.model_name,
+            embedding=[0.1, 0.2, 0.3],
         )
 
 
@@ -140,6 +153,7 @@ async def test_documents_route_registers_document_for_current_tenant() -> None:
 async def test_documents_route_persists_document_in_database(db_session) -> None:
     await seed_document_dependencies(db_session)
     app.dependency_overrides[get_db_session] = build_db_session_override(db_session)
+    app.dependency_overrides[get_ai_gateway_service] = lambda: FakeEmbeddingGatewayService()
     transport = ASGITransport(app=app)
 
     try:
@@ -188,6 +202,7 @@ async def test_documents_route_persists_document_in_database(db_session) -> None
 async def test_documents_route_allows_registering_new_version_for_existing_document(db_session) -> None:
     await seed_document_dependencies(db_session)
     app.dependency_overrides[get_db_session] = build_db_session_override(db_session)
+    app.dependency_overrides[get_ai_gateway_service] = lambda: FakeEmbeddingGatewayService()
     transport = ASGITransport(app=app)
 
     try:
@@ -242,6 +257,7 @@ async def test_documents_route_allows_registering_new_version_for_existing_docum
 async def test_get_document_route_returns_document_for_current_tenant(db_session) -> None:
     await seed_document_dependencies(db_session)
     app.dependency_overrides[get_db_session] = build_db_session_override(db_session)
+    app.dependency_overrides[get_ai_gateway_service] = lambda: FakeEmbeddingGatewayService()
     transport = ASGITransport(app=app)
 
     try:
@@ -285,6 +301,7 @@ async def test_get_document_route_returns_document_for_current_tenant(db_session
 async def test_activate_document_version_route_marks_version_as_active(db_session) -> None:
     await seed_document_dependencies(db_session)
     app.dependency_overrides[get_db_session] = build_db_session_override(db_session)
+    app.dependency_overrides[get_ai_gateway_service] = lambda: FakeEmbeddingGatewayService()
     transport = ASGITransport(app=app)
 
     try:
@@ -337,6 +354,7 @@ async def test_activate_document_version_route_marks_version_as_active(db_sessio
 async def test_activate_document_version_route_returns_not_found_for_missing_version(db_session) -> None:
     await seed_document_dependencies(db_session)
     app.dependency_overrides[get_db_session] = build_db_session_override(db_session)
+    app.dependency_overrides[get_ai_gateway_service] = lambda: FakeEmbeddingGatewayService()
     transport = ASGITransport(app=app)
 
     try:
@@ -374,6 +392,7 @@ async def test_activate_document_version_route_returns_not_found_for_missing_ver
 async def test_get_document_route_returns_not_found_for_missing_document(db_session) -> None:
     await seed_document_dependencies(db_session)
     app.dependency_overrides[get_db_session] = build_db_session_override(db_session)
+    app.dependency_overrides[get_ai_gateway_service] = lambda: FakeEmbeddingGatewayService()
     transport = ASGITransport(app=app)
 
     try:

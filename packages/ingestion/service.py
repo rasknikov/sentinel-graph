@@ -1,18 +1,31 @@
+import uuid
+
 from packages.common.errors import DomainError, ErrorCode
 from packages.common.ids import DocumentId, TenantId, UserId
 from packages.ingestion.contracts import (
+    DocumentIngestionJobRecord,
     DocumentRecord,
     DocumentRegistrationRequest,
     DocumentStatus,
     DocumentVersionRecord,
+    IngestionJobStatus,
 )
+from packages.ingestion.jobs import DocumentIngestionJobs
+from packages.ingestion.pipeline import DocumentIngestionPipeline
 from packages.ingestion.repository import DocumentRepository
 from packages.security.tenant_context import TenantContext
 
 
 class DocumentIngestionService:
-    def __init__(self, repository: DocumentRepository) -> None:
+    def __init__(
+        self,
+        repository: DocumentRepository,
+        pipeline: DocumentIngestionPipeline | None = None,
+        jobs: DocumentIngestionJobs | None = None,
+    ) -> None:
         self._repository = repository
+        self._pipeline = pipeline or DocumentIngestionPipeline()
+        self._jobs = jobs or DocumentIngestionJobs()
 
     async def register_document(
         self,
@@ -41,6 +54,32 @@ class DocumentIngestionService:
         )
 
         await self._repository.create_document(document_record, version_record)
+
+        job_record = DocumentIngestionJobRecord(
+            job_id=f"job_{uuid.uuid4().hex}",
+            document_id=document_record.document_id,
+            tenant_id=document_record.tenant_id,
+            version=version_record.version,
+            status=IngestionJobStatus.QUEUED,
+        )
+        await self._repository.create_ingestion_job(job_record)
+
+        processing_job = self._jobs.start_job(job_record)
+        await self._repository.update_ingestion_job(processing_job)
+
+        try:
+            chunks, _embedded_chunks = await self._pipeline.process_document(
+                request=request,
+                version_record=version_record,
+            )
+            await self._repository.create_chunks(chunks)
+        except Exception:
+            failed_job = self._jobs.fail_job(processing_job)
+            await self._repository.update_ingestion_job(failed_job)
+            raise
+
+        completed_job = self._jobs.complete_job(processing_job)
+        await self._repository.update_ingestion_job(completed_job)
 
         return document_record
 

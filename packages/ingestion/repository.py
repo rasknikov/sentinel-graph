@@ -3,8 +3,18 @@ from datetime import UTC, datetime
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from packages.common.db.models import Document, DocumentVersion
-from packages.ingestion.contracts import DocumentRecord, DocumentVersionRecord
+from packages.common.db.models import (
+    Document,
+    DocumentChunk,
+    DocumentIngestionJob,
+    DocumentVersion,
+)
+from packages.ingestion.contracts import (
+    DocumentChunkRecord,
+    DocumentIngestionJobRecord,
+    DocumentRecord,
+    DocumentVersionRecord,
+)
 
 
 class DocumentRepository:
@@ -65,6 +75,73 @@ class DocumentRepository:
         await self._session.flush()
 
         return document
+
+    async def create_chunks(
+        self,
+        chunks: list[DocumentChunkRecord],
+    ) -> None:
+        now = datetime.now(UTC).replace(tzinfo=None)
+
+        for chunk in chunks:
+            self._session.add(
+                DocumentChunk(
+                    chunk_id=chunk.chunk_id,
+                    document_id=chunk.document_id,
+                    version=chunk.version,
+                    tenant_id=chunk.tenant_id,
+                    chunk_index=chunk.chunk_index,
+                    content_text=chunk.content_text,
+                    content_hash=chunk.content_hash,
+                    classification=chunk.classification,
+                    chunking_strategy_version=chunk.chunking_strategy_version,
+                    created_at=now,
+                )
+            )
+
+        await self._session.flush()
+
+    async def create_ingestion_job(
+        self,
+        job: DocumentIngestionJobRecord,
+    ) -> None:
+        now = datetime.now(UTC).replace(tzinfo=None)
+
+        self._session.add(
+            DocumentIngestionJob(
+                job_id=job.job_id,
+                document_id=job.document_id,
+                version=job.version,
+                tenant_id=job.tenant_id,
+                status=job.status.value,
+                created_at=now,
+                updated_at=None,
+            )
+        )
+        await self._session.flush()
+
+    async def update_ingestion_job(
+        self,
+        job: DocumentIngestionJobRecord,
+    ) -> None:
+        stored_job = await self.get_ingestion_job_by_id(job.job_id)
+
+        if stored_job is None:
+            return
+
+        stored_job.status = job.status.value
+        stored_job.updated_at = datetime.now(UTC).replace(tzinfo=None)
+        await self._session.flush()
+
+    async def get_ingestion_job_by_id(
+        self,
+        job_id: str,
+    ) -> DocumentIngestionJob | None:
+        result = await self._session.execute(
+            select(DocumentIngestionJob).where(
+                DocumentIngestionJob.job_id == job_id,
+            )
+        )
+        return result.scalar_one_or_none()
 
     async def get_document_by_id_for_tenant(
         self,

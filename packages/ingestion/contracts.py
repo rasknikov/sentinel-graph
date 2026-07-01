@@ -54,3 +54,39 @@ class DocumentVersionRecord(BaseModel):
     status: DocumentStatus
 
 
+class IngestionJobStatus(StrEnum):
+    QUEUED = "queued"
+    PROCESSING = "processing"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
+class DocumentChunkRecord(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    chunk_id: str
+    document_id: str
+    tenant_id: TenantId
+    version: str
+    chunk_index: int
+    content_text: str
+    content_hash: str
+    classification: str
+    chunking_strategy_version: str
+
+
+class DocumentIngestionJobRecord(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    job_id: str
+    document_id: str
+    tenant_id: TenantId
+    version: str
+    status: IngestionJobStatus
+
+class EmbeddedChunkRecord(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    chunk_id: str
+    embedding_model_name: str
+    embedding_vector: list[float]

@@ -2,6 +2,8 @@ import pytest
 
 from packages.common.errors import DomainError, ErrorCode
 from packages.ingestion.contracts import (
+    DocumentChunkRecord,
+    DocumentIngestionJobRecord,
     DocumentRecord,
     DocumentRegistrationRequest,
     DocumentStatus,
@@ -31,6 +33,9 @@ class FakeDocumentRepository:
     def __init__(self) -> None:
         self.created_record: DocumentRecord | None = None
         self.created_version_record: DocumentVersionRecord | None = None
+        self.created_job: DocumentIngestionJobRecord | None = None
+        self.updated_jobs: list[DocumentIngestionJobRecord] = []
+        self.created_chunks: list[DocumentChunkRecord] = []
         self.loaded_record: DocumentRecord | None = None
         self.loaded_version_record: DocumentVersionRecord | None = None
         self.activated_document: object | None = None
@@ -43,6 +48,24 @@ class FakeDocumentRepository:
     ) -> None:
         self.created_record = record
         self.created_version_record = version_record
+
+    async def create_ingestion_job(
+        self,
+        job: DocumentIngestionJobRecord,
+    ) -> None:
+        self.created_job = job
+
+    async def update_ingestion_job(
+        self,
+        job: DocumentIngestionJobRecord,
+    ) -> None:
+        self.updated_jobs.append(job)
+
+    async def create_chunks(
+        self,
+        chunks: list[DocumentChunkRecord],
+    ) -> None:
+        self.created_chunks = chunks
 
     async def get_document_by_id_for_tenant(
         self,
@@ -118,10 +141,42 @@ class FakeDocumentRepository:
         self.activated_document_version = document_version
 
 
+class FakeDocumentIngestionPipeline:
+    def __init__(self) -> None:
+        self.last_request: DocumentRegistrationRequest | None = None
+        self.last_version_record: DocumentVersionRecord | None = None
+
+    async def process_document(
+        self,
+        *,
+        request: DocumentRegistrationRequest,
+        version_record: DocumentVersionRecord,
+    ) -> tuple[list[DocumentChunkRecord], list[object]]:
+        self.last_request = request
+        self.last_version_record = version_record
+        return (
+            [
+                DocumentChunkRecord(
+                    chunk_id="doc_policy_v1:v1:0",
+                    document_id=version_record.document_id,
+                    tenant_id=version_record.tenant_id,
+                    version=version_record.version,
+                    chunk_index=0,
+                    content_text="Policy content",
+                    content_hash="chunk_hash_123",
+                    classification=version_record.classification,
+                    chunking_strategy_version="chunker_v1",
+                )
+            ],
+            [],
+        )
+
+
 @pytest.mark.asyncio
 async def test_register_document_creates_draft_record_from_request_context() -> None:
     repository = FakeDocumentRepository()
-    service = DocumentIngestionService(repository=repository)
+    pipeline = FakeDocumentIngestionPipeline()
+    service = DocumentIngestionService(repository=repository, pipeline=pipeline)
 
     result = await service.register_document(
         DocumentRegistrationRequest(
@@ -138,9 +193,20 @@ async def test_register_document_creates_draft_record_from_request_context() -> 
 
     assert repository.created_record is not None
     assert repository.created_version_record is not None
+    assert repository.created_job is not None
+    assert repository.created_chunks
     assert repository.created_record.document_id == "doc_policy_v1"
     assert repository.created_version_record.version == "v1"
     assert repository.created_version_record.content_text == "Policy content"
+    assert repository.created_job.document_id == "doc_policy_v1"
+    assert repository.created_job.version == "v1"
+    assert [job.status.value for job in repository.updated_jobs] == [
+        "processing",
+        "completed",
+    ]
+    assert repository.created_chunks[0].chunk_id == "doc_policy_v1:v1:0"
+    assert pipeline.last_request is not None
+    assert pipeline.last_version_record is not None
     assert result.document_id == "doc_policy_v1"
     assert result.tenant_id == "tenant_credit"
     assert result.created_by == "user_123"
@@ -166,7 +232,10 @@ async def test_get_document_returns_registered_document_for_current_tenant() -> 
         classification="internal",
         status=DocumentStatus.DRAFT,
     )
-    service = DocumentIngestionService(repository=repository)
+    service = DocumentIngestionService(
+        repository=repository,
+        pipeline=FakeDocumentIngestionPipeline(),
+    )
 
     result = await service.get_document(
         tenant_context=build_tenant_context(),
@@ -181,7 +250,10 @@ async def test_get_document_returns_registered_document_for_current_tenant() -> 
 
 @pytest.mark.asyncio
 async def test_get_document_raises_not_found_when_document_is_missing() -> None:
-    service = DocumentIngestionService(repository=FakeDocumentRepository())
+    service = DocumentIngestionService(
+        repository=FakeDocumentRepository(),
+        pipeline=FakeDocumentIngestionPipeline(),
+    )
 
     with pytest.raises(DomainError) as exc_info:
         await service.get_document(
@@ -217,7 +289,10 @@ async def test_activate_document_version_marks_document_as_active() -> None:
         classification="internal",
         status=DocumentStatus.DRAFT,
     )
-    service = DocumentIngestionService(repository=repository)
+    service = DocumentIngestionService(
+        repository=repository,
+        pipeline=FakeDocumentIngestionPipeline(),
+    )
 
     result = await service.activate_document_version(
         tenant_context=build_tenant_context(),
@@ -246,7 +321,10 @@ async def test_activate_document_version_raises_not_found_when_version_is_missin
         classification="internal",
         status=DocumentStatus.DRAFT,
     )
-    service = DocumentIngestionService(repository=repository)
+    service = DocumentIngestionService(
+        repository=repository,
+        pipeline=FakeDocumentIngestionPipeline(),
+    )
 
     with pytest.raises(DomainError) as exc_info:
         await service.activate_document_version(
