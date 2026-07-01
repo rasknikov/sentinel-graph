@@ -36,6 +36,8 @@ def _status_code_for_error(code: ErrorCode) -> int:
         ErrorCode.TENANT_CONTEXT_MISSING,
         ErrorCode.TENANT_MISMATCH,
         ErrorCode.TENANT_INACTIVE,
+        ErrorCode.OUTPUT_VALIDATION_FAILED,
+        ErrorCode.GROUNDING_FAILED,
     }:
         return status.HTTP_400_BAD_REQUEST
 

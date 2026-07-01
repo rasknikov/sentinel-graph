@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from packages.rag.contracts import RetrievalFilters, RetrievalRequest
 from packages.rag.dependencies import get_vector_access_gateway
@@ -16,7 +16,7 @@ class SearchRequestPayload(BaseModel):
 
     query_text: str
     top_k: int = 5
-    filters: RetrievalFilters = RetrievalFilters()
+    filters: RetrievalFilters = Field(default_factory=RetrievalFilters)
 
 
 @router.post("/v1/rag/search")

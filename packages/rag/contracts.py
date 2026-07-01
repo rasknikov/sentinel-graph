@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from packages.security.tenant_context import TenantContext
 
@@ -17,7 +17,7 @@ class RetrievalRequest(BaseModel):
     tenant_context: TenantContext
     query_text: str
     top_k: int = 5
-    filters: RetrievalFilters = RetrievalFilters()
+    filters: RetrievalFilters = Field(default_factory=RetrievalFilters)
 
 
 class RetrievedChunk(BaseModel):

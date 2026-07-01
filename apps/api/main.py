@@ -2,6 +2,7 @@ from fastapi import FastAPI
 
 from apps.api.core.error_handlers import register_error_handlers
 from apps.api.routes.ai_gateway import router as ai_gateway_router
+from apps.api.routes.ai_requests import router as ai_requests_router
 from apps.api.routes.context import router as context_router
 from apps.api.routes.documents import router as documents_router
 from apps.api.routes.health import router as health_router
@@ -20,6 +21,7 @@ def create_app() -> FastAPI:
     app.include_router(ai_gateway_router)
     app.include_router(documents_router)
     app.include_router(rag_router)
+    app.include_router(ai_requests_router)
     return app
 
 
