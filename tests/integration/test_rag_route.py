@@ -2,6 +2,8 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 
 from apps.api.main import app
+from packages.ai_gateway.contracts import EmbeddingRequest, EmbeddingResult
+from packages.ai_gateway.dependencies import get_ai_gateway_service
 from packages.common.db.dependencies import get_db_session
 from tests.integration.test_health_route import build_auth_header
 from tests.integration.test_rag_retriever import seed_retrieval_records
@@ -12,6 +14,17 @@ def build_db_session_override(db_session):
         yield db_session
 
     return _override_db_session
+
+
+class FakeAIGatewayService:
+    async def generate_embedding(
+        self,
+        request: EmbeddingRequest,
+    ) -> EmbeddingResult:
+        return EmbeddingResult(
+            model_name=request.model_name,
+            embedding=[0.1, 0.2, 0.3],
+        )
 
 
 @pytest.mark.asyncio
@@ -40,6 +53,7 @@ async def test_rag_search_route_requires_authentication() -> None:
 async def test_rag_search_route_returns_active_chunks_for_current_tenant(db_session) -> None:
     await seed_retrieval_records(db_session)
     app.dependency_overrides[get_db_session] = build_db_session_override(db_session)
+    app.dependency_overrides[get_ai_gateway_service] = lambda: FakeAIGatewayService()
     transport = ASGITransport(app=app)
 
     try:
@@ -69,6 +83,7 @@ async def test_rag_search_route_returns_active_chunks_for_current_tenant(db_sess
 async def test_rag_search_route_respects_filters_and_excludes_other_tenants(db_session) -> None:
     await seed_retrieval_records(db_session)
     app.dependency_overrides[get_db_session] = build_db_session_override(db_session)
+    app.dependency_overrides[get_ai_gateway_service] = lambda: FakeAIGatewayService()
     transport = ASGITransport(app=app)
 
     try:
