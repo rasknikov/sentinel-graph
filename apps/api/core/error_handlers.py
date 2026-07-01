@@ -16,6 +16,12 @@ def register_error_handlers(app: FastAPI) -> None:
 
 def _status_code_for_error(code: ErrorCode) -> int:
     if code in {
+        ErrorCode.DOCUMENT_NOT_FOUND,
+        ErrorCode.DOCUMENT_VERSION_NOT_FOUND,
+    }:
+        return status.HTTP_404_NOT_FOUND
+
+    if code in {
         ErrorCode.AUTH_INVALID,
         ErrorCode.TENANT_ACCESS_DENIED,
         ErrorCode.TENANT_ACCESS_DENIED,
