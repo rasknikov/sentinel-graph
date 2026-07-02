@@ -5,7 +5,7 @@
 ### Build a governed multi-tenant agentic RAG platform for internal financial AI use cases
 
 [![Public Snapshot](https://img.shields.io/badge/Public%20Snapshot-Open%20Code-0A66C2)](docs/INDEX.md)
-[![Stage](https://img.shields.io/badge/Stage-Documentation%20First-1F6FEB)](docs/INDEX.md)
+[![Stage](https://img.shields.io/badge/Stage-Baseline%20Implementation%20Active-1F6FEB)](docs/INDEX.md)
 [![Domain](https://img.shields.io/badge/Domain-Financial%20AI-0F766E)](docs/SPEC.md)
 [![Architecture](https://img.shields.io/badge/Architecture-Multi%20Tenant%20Agentic%20RAG-7C3AED)](docs/ARCHITECTURE.md)
 [![Python](https://img.shields.io/badge/Python-3.12%2B-3776AB?logo=python&logoColor=white)](pyproject.toml)
@@ -30,7 +30,7 @@ Most internal AI projects fail at the control plane, not the prompt layer. Tenan
 | Agent loops are hard to bound | The runtime is a **strict graph** with budget, policy, and HITL gates |
 | Answers are hard to explain later | Responses are designed for **citations, traces, audit records, and artifact versioning** |
 
-**Bottom line:** this repository is the public open-code version of a real client project, shaped so the implementation path can lead to production-grade code instead of a throwaway prototype.
+**Bottom line:** this repository is the public open-code version of a real client project, shaped so the implementation path leads to production-grade code instead of a throwaway prototype.
 
 ---
 
@@ -104,13 +104,15 @@ flowchart TB
 ### Prerequisites
 - `git`
 - `python 3.12+`
-- Docker is optional for the public snapshot and becomes relevant once the implementation track starts
+- `uv`
+- Docker is optional at the current stage and becomes relevant when local infra services are needed
 
 ### 1. Clone & Configure
 ```bash
 git clone <your-fork-or-repo-url>
 cd sentinel-graph
-python -c "import sys; print(sys.version)"
+uv python list
+uv sync
 ```
 
 ### 2. Inspect the Architecture Blueprint
@@ -123,14 +125,19 @@ This repository currently exposes:
 | Area | Status | Purpose |
 |---|---|---|
 | `docs/` | published | canonical product, security, stack, and implementation documents |
-| `apps/` | scaffolded | future API, worker, and admin entrypoints |
-| `packages/` | scaffolded | future runtime, security, RAG, tooling, governance, and observability modules |
-| `infra/` | scaffolded | future Docker, Kubernetes, Terraform, and Helm assets |
-| `tests/` | scaffolded | future unit, integration, security, eval, and load suites |
+| `apps/` | active baseline | API routes and composition for health, policy, AI gateway, documents, RAG, and AI requests |
+| `packages/` | active baseline | implemented modules for common DB, security, governance, AI gateway, ingestion, and RAG |
+| `infra/` | partial baseline | Alembic and infra scaffolding for the implementation track |
+| `tests/` | active baseline | unit and integration suites covering the implemented modules |
 
 ### 3. Start with the Canonical Reading Order
 ```bash
 python -c "print('1. docs/INDEX.md\\n2. docs/SPEC.md\\n3. docs/ARCHITECTURE.md\\n4. docs/TENANT_MODEL.md\\n5. docs/IMPLEMENTATION_PLAN.md')"
+```
+
+### 4. Verify the Current Baseline
+```bash
+uv run pytest tests/unit/rag tests/integration/test_rag_route.py tests/integration/test_ai_requests_route.py -q
 ```
 
 ---
@@ -180,11 +187,10 @@ sentinel-graph/
 ## Testing
 
 ```bash
-python -m pytest tests/ -v
-
-# Current public snapshot: repository structure and documentation are public;
-# executable suites land alongside each implementation module.
+uv run pytest tests/ -v
 ```
+
+Current public snapshot: the docs remain the canonical blueprint, but the repository is already in baseline implementation across the platform core.
 
 ---
 
